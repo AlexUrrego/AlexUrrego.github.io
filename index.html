@@ -84,6 +84,23 @@ footer{padding-block:2rem 3rem;color:var(--muted);font-size:.95rem;border-top:2p
 @media (max-width:560px){.btn{flex:1 1 100%;text-align:center}}
 @media (prefers-reduced-motion:reduce){.bar i.on{animation:none}.btn{transition:none}}
 @media print{body{background:#fff;color:#000}body::before{display:none}.actions{display:none}}
+
+/* Repositorios de GitHub */
+.github-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:1rem}
+.github-card{display:flex;flex-direction:column;gap:.65rem;min-width:0;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:1.1rem;box-shadow:0 4px 0 #070a0c;transition:transform .15s,border-color .15s}
+.github-card:hover{transform:translateY(-3px);border-color:var(--accent)}
+.github-card h3{font-size:1.05rem;line-height:1.4;margin:0;overflow-wrap:anywhere}
+.github-card h3 a{color:var(--ink);text-decoration:none}
+.github-card h3 a:hover{color:var(--accent)}
+.github-card p{color:var(--muted);font-size:.95rem;margin:0;flex:1}
+.github-meta{display:flex;flex-wrap:wrap;gap:.6rem;color:var(--muted);font-size:.85rem}
+.github-language{display:inline-flex;align-items:center;gap:.4rem}
+.github-dot{width:9px;height:9px;border-radius:50%;background:var(--gold);display:inline-block}
+.github-links{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.3rem}
+.github-links a{font-size:.9rem;font-weight:700;text-decoration:none;padding:.45rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
+.github-state{color:var(--muted);background:var(--panel);border:2px dashed var(--line);border-radius:12px;padding:1rem}
+.github-actions{margin-top:1rem}
+
 </style>
 </head>
 <body>
@@ -144,6 +161,16 @@ footer{padding-block:2rem 3rem;color:var(--muted);font-size:.95rem;border-top:2p
       <div class="bar" aria-hidden="true"><i class="on" style="--n:0"></i><i class="on" style="--n:1"></i><i class="on" style="--n:2"></i><i></i><i></i></div>
       <p>Desarrollo con asistentes de IA, prompts, revisión y depuración del código generado</p>
     </div></div>
+</section>
+
+<section id="repositorios">
+  <h2 class="px">REPOSITORIOS GITHUB</h2>
+  <p class="intro">Proyectos y ejercicios de programación publicados en GitHub. Esta sección se actualiza automáticamente con mis repositorios públicos.</p>
+  <div id="github-status" class="github-state" role="status" aria-live="polite">Cargando repositorios...</div>
+  <div id="github-grid" class="github-grid" aria-label="Repositorios públicos de GitHub"></div>
+  <div class="actions github-actions">
+    <a class="btn primary" href="https://github.com/AlexUrrego" target="_blank" rel="noopener noreferrer">Ver todos mis repositorios</a>
+  </div>
 </section>
 
 <section id="proyectos">
@@ -218,5 +245,95 @@ footer{padding-block:2rem 3rem;color:var(--muted);font-size:.95rem;border-top:2p
 </footer>
 
 </div>
+
+<script>
+(() => {
+  const username = "AlexUrrego";
+  const grid = document.getElementById("github-grid");
+  const status = document.getElementById("github-status");
+  const apiUrl = `https://api.github.com/users/${username}/repos?sort=updated&per_page=100`;
+
+  function createTextElement(tag, className, text) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = text;
+    return element;
+  }
+
+  function createLink(label, url) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.textContent = label;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    return link;
+  }
+
+  function renderRepository(repo) {
+    const card = document.createElement("article");
+    card.className = "github-card";
+
+    const heading = document.createElement("h3");
+    heading.appendChild(createLink(repo.name, repo.html_url));
+    card.appendChild(heading);
+
+    card.appendChild(createTextElement(
+      "p",
+      "",
+      repo.description || "Repositorio público. Consulta el código y los detalles en GitHub."
+    ));
+
+    const meta = document.createElement("div");
+    meta.className = "github-meta";
+    if (repo.language) {
+      const language = document.createElement("span");
+      language.className = "github-language";
+      language.appendChild(createTextElement("span", "github-dot", ""));
+      language.appendChild(document.createTextNode(repo.language));
+      meta.appendChild(language);
+    }
+    meta.appendChild(createTextElement("span", "", `★ ${repo.stargazers_count || 0}`));
+    meta.appendChild(createTextElement("span", "", `⑂ ${repo.forks_count || 0}`));
+    card.appendChild(meta);
+
+    const links = document.createElement("div");
+    links.className = "github-links";
+    links.appendChild(createLink("Ver código", repo.html_url));
+    if (repo.homepage) links.appendChild(createLink("Ver demo", repo.homepage));
+    card.appendChild(links);
+    return card;
+  }
+
+  async function loadRepositories() {
+    try {
+      const response = await fetch(apiUrl, {
+        headers: { "Accept": "application/vnd.github+json" }
+      });
+      if (!response.ok) throw new Error(`GitHub respondió con estado ${response.status}`);
+
+      const repositories = await response.json();
+      const publicRepositories = repositories
+        .filter(repo => !repo.fork)
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+      if (publicRepositories.length === 0) {
+        status.textContent = "Todavía no hay repositorios públicos para mostrar.";
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      publicRepositories.forEach(repo => fragment.appendChild(renderRepository(repo)));
+      grid.appendChild(fragment);
+      status.textContent = `Se muestran ${publicRepositories.length} repositorios públicos, ordenados por última actualización.`;
+    } catch (error) {
+      console.error("No fue posible cargar los repositorios de GitHub:", error);
+      status.textContent = "No se pudieron cargar los repositorios automáticamente. Puedes consultarlos directamente en GitHub.";
+    }
+  }
+
+  loadRepositories();
+})();
+</script>
+
 </body>
 </html>
